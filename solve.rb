@@ -1,13 +1,26 @@
-require 'active_support/all'
 SAT = 1
 UNSAT = 0
 
 class CNF
-  attr_accessor :formula
-  attr_accessor :truth_assignment
   def initialize
     @formula = Array.new
     @truth_assignment = Hash.new
+  end
+
+  def parse(file_path)
+    header = ""; clauses = [];
+    File.open(file_path,"r") do |f|
+      header = f.readline
+      clauses = f.readlines
+    end
+    header.split[2].to_i.times do |i|
+      @truth_assignment["#{i+1}".to_sym] = nil
+    end
+    clauses.each do |e|
+      clause = e.split.map{|i| i.to_i}
+      clause.pop
+      @formula.append clause
+    end
   end
 
   def unit_propagation
@@ -22,6 +35,10 @@ class CNF
       cls.include?(l)
     end
     @formula.map{|cls| if cls.include?(-1*l) then cls.delete(-1*l) end}
+  end
+
+  def empty?
+    @formula.empty?
   end
 
   def find_unit_clause
@@ -44,6 +61,17 @@ class CNF
     return self
   end
 
+  def deep_dup
+    tmp_formula = Marshal.load(Marshal.dump(@formula))
+    tmp_truth = Marshal.load(Marshal.dump(@truth_assignment))
+    [tmp_formula,tmp_truth]
+  end
+
+  def restore(tmp)
+    @formula = tmp[0]
+    @truth_assignment = tmp[1]
+  end
+
   def result
     str = ""
     @truth_assignment.map{|key,value| unless value then str<<"-" end; str<<key.to_s+" "}
@@ -51,40 +79,22 @@ class CNF
   end
 end
 
-def parse(file_path,cnf)
-  header = ""; clauses = [];
-  File.open(file_path,"r") do |f|
-    header = f.readline
-    clauses = f.readlines
-  end
-  header.split[2].to_i.times do |i|
-    cnf.truth_assignment["#{i+1}".to_sym] = nil
-  end
-  clauses.each do |e|
-    clause = e.split.map{|i| i.to_i}
-    clause.pop
-    cnf.formula.append clause
-  end
-end
-
 def DPLL(cnf)
-  if cnf.formula.empty? then return SAT end
+  if cnf.empty? then return SAT end
   cnf.unit_propagation
   if cnf.exist_empty_clause? then return UNSAT end
   x = cnf.choose_variable
-  tmp_formula = cnf.formula.deep_dup
-  tmp_truth = cnf.truth_assignment.deep_dup
+  tmp = cnf.deep_dup
   if DPLL(cnf.append x) == SAT
     return SAT
   else
-    cnf.formula = tmp_formula
-    cnf.truth_assignment = tmp_truth
+    cnf.restore(tmp)
     return DPLL(cnf.append -1*x)
   end
 end
 
 cnf = CNF.new
-parse(ARGV[0],cnf)
+cnf.parse(ARGV[0])
 case DPLL(cnf)
 when SAT
   puts "SAT"
