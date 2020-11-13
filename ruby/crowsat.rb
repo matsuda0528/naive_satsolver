@@ -21,8 +21,20 @@ cnf = CNF.new
 cnf.parse(ARGV[0])
 case DPLL(cnf)
 when SAT
-  puts "SAT"
-  puts cnf.result
+  if ARGV[1]
+    File.open(ARGV[1],"w") do |f|
+      f.write("SAT\n"+cnf.result)
+    end
+  else
+    puts "SAT"
+    puts cnf.result
+  end
 when UNSAT
-  puts "UNSAT"
+  if ARGV[1]
+    File.open(ARGV[1],"w") do |f|
+      f.write("UNSAT")
+    end
+  else
+    puts "UNSAT"
+  end
 end
